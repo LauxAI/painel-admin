@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
-import { ClientsTable } from "@/app/usuarios/clients-table"
-import { InviteClientDialog } from "@/app/usuarios/invite-client-dialog"
+import { ClientsTable } from "@/app/admin/usuarios/clients-table"
+import { InviteClientDialog } from "@/app/admin/usuarios/invite-client-dialog"
 import type { ClientAccount, Invite } from "@/lib/types"
 
 export const dynamic = "force-dynamic"

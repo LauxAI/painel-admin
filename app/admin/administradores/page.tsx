@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { getCurrentAdmin } from "@/lib/get-current-admin"
-import { AdminsTable } from "@/app/administradores/admins-table"
-import { InviteAdminDialog } from "@/app/administradores/invite-admin-dialog"
+import { AdminsTable } from "@/app/admin/administradores/admins-table"
+import { InviteAdminDialog } from "@/app/admin/administradores/invite-admin-dialog"
 import type { AdminProfile, Invite } from "@/lib/types"
 
 export const dynamic = "force-dynamic"

@@ -15,7 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { inviteAdmin, type AdminFormState } from "@/app/administradores/actions"
+import { inviteAdmin, type AdminFormState } from "@/app/admin/administradores/actions"
 
 export function InviteAdminDialog() {
   const [open, setOpen] = useState(false)

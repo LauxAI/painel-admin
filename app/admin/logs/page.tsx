@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
-import { LogsTable } from "@/app/logs/logs-table"
+import { LogsTable } from "@/app/admin/logs/logs-table"
 import type { ActivityLog } from "@/lib/types"
 
 export const dynamic = "force-dynamic"

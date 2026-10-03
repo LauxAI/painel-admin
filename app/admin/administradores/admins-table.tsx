@@ -29,7 +29,7 @@ import {
   cancelAdminInvite,
   removeAdmin,
   resendAdminInvite,
-} from "@/app/administradores/actions"
+} from "@/app/admin/administradores/actions"
 import { ADMIN_STATUS_BADGE, INVITE_STATUS_BADGE } from "@/lib/status-styles"
 import { ADMIN_ROLE_LABELS } from "@/lib/types"
 import { formatDateTime } from "@/lib/format"

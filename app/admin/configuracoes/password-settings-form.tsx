@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { updateOwnPassword } from "@/app/configuracoes/actions"
+import { updateOwnPassword } from "@/app/admin/configuracoes/actions"
 
 export function PasswordSettingsForm() {
   const [isPending, startTransition] = useTransition()

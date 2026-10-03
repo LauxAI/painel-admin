@@ -15,7 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { inviteClient, type ClientFormState } from "@/app/usuarios/actions"
+import { inviteClient, type ClientFormState } from "@/app/admin/usuarios/actions"
 
 export function InviteClientDialog() {
   const [open, setOpen] = useState(false)

@@ -25,8 +25,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { EditClientDialog } from "@/app/usuarios/edit-client-dialog"
-import { changeClientStatus, deleteClient, resendClientInvite } from "@/app/usuarios/actions"
+import { EditClientDialog } from "@/app/admin/usuarios/edit-client-dialog"
+import { changeClientStatus, deleteClient, resendClientInvite } from "@/app/admin/usuarios/actions"
 import { CLIENT_STATUS_BADGE } from "@/lib/status-styles"
 import { formatDate } from "@/lib/format"
 import type { ClientAccount, ClientStatus, Invite } from "@/lib/types"

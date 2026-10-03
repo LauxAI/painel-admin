@@ -1,8 +1,8 @@
 import { createClient } from "@/lib/supabase/server"
 import { getCurrentAdmin } from "@/lib/get-current-admin"
-import { OrganizationSettingsForm } from "@/app/configuracoes/organization-settings-form"
-import { ProfileSettingsForm } from "@/app/configuracoes/profile-settings-form"
-import { PasswordSettingsForm } from "@/app/configuracoes/password-settings-form"
+import { OrganizationSettingsForm } from "@/app/admin/configuracoes/organization-settings-form"
+import { ProfileSettingsForm } from "@/app/admin/configuracoes/profile-settings-form"
+import { PasswordSettingsForm } from "@/app/admin/configuracoes/password-settings-form"
 
 export const dynamic = "force-dynamic"
 

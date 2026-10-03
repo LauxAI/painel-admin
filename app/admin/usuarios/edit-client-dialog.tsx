@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { updateClient, type ClientFormState } from "@/app/usuarios/actions"
+import { updateClient, type ClientFormState } from "@/app/admin/usuarios/actions"
 import type { ClientAccount } from "@/lib/types"
 
 export function EditClientDialog({
