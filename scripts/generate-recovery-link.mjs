@@ -37,11 +37,17 @@ const admin = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 })
 
+// Supabase only honors `redirectTo` when it exactly matches an entry in the
+// project's allowed redirect URL list; the v0-managed proxy origin is
+// pre-allowed there, but appending a query string breaks that exact match
+// and GoTrue silently falls back to the default Site URL instead. The
+// `/auth/callback` route already defaults its own `next` param to
+// `/redefinir-senha`, so no query string is needed here.
 const { data, error } = await admin.auth.admin.generateLink({
   type: "recovery",
   email,
   options: {
-    redirectTo: `${redirectOrigin}?next=/redefinir-senha`,
+    redirectTo: redirectOrigin,
   },
 })
 
