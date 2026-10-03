@@ -13,6 +13,9 @@ export const ACTIVITY_ACTION_LABELS: Record<string, string> = {
   administrador_funcao_alterada: "Função de administrador alterada",
   administrador_status_alterado: "Status de administrador alterado",
   administrador_removido: "Administrador removido",
+  configuracoes_atualizadas: "Configurações atualizadas",
+  perfil_atualizado: "Perfil atualizado",
+  senha_atualizada: "Senha atualizada",
 }
 
 export function activityActionLabel(actionType: string) {
