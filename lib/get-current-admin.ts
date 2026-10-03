@@ -20,7 +20,8 @@ export async function getCurrentAdmin(): Promise<AdminProfile> {
 
   const { data: profile } = await supabase.from("admin_profiles").select("*").eq("id", user.id).maybeSingle()
 
-  if (!profile) {
+  if (!profile || (profile.role !== "OWNER" && profile.role !== "ADMIN")) {
+    await supabase.auth.signOut()
     redirect("/login")
   }
 

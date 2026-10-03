@@ -7,16 +7,16 @@ import { Topbar } from "@/components/dashboard/topbar"
 import type { AdminProfile } from "@/lib/types"
 
 const PAGE_TITLES: Record<string, string> = {
-  "/": "Dashboard",
-  "/usuarios": "Usuários e Contas",
-  "/administradores": "Administradores",
-  "/logs": "Logs e Atividades",
-  "/configuracoes": "Configurações",
+  "/admin": "Dashboard",
+  "/admin/usuarios": "Usuários e Contas",
+  "/admin/administradores": "Administradores",
+  "/admin/logs": "Logs e Atividades",
+  "/admin/configuracoes": "Configurações",
 }
 
 function resolveTitle(pathname: string) {
   if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname]
-  const base = "/" + pathname.split("/")[1]
+  const base = "/" + pathname.split("/").slice(1, 3).join("/")
   return PAGE_TITLES[base] ?? "LAUXAI CORE"
 }
 

@@ -68,7 +68,7 @@ export default async function DashboardPage() {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-medium text-muted-foreground">Atividade recente</CardTitle>
             <Link
-              href="/logs"
+              href="/admin/logs"
               className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
             >
               Ver tudo

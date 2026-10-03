@@ -7,11 +7,11 @@ import { cn } from "@/lib/utils"
 import type { AdminRole } from "@/lib/types"
 
 const NAV_ITEMS = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard, ownerOnly: false },
-  { href: "/usuarios", label: "Usuários e Contas", icon: Users, ownerOnly: false },
-  { href: "/administradores", label: "Administradores", icon: ShieldCheck, ownerOnly: false },
-  { href: "/logs", label: "Logs e Atividades", icon: ScrollText, ownerOnly: false },
-  { href: "/configuracoes", label: "Configurações", icon: Settings, ownerOnly: true },
+  { href: "/admin", label: "Dashboard", icon: LayoutDashboard, ownerOnly: false },
+  { href: "/admin/usuarios", label: "Usuários e Contas", icon: Users, ownerOnly: false },
+  { href: "/admin/administradores", label: "Administradores", icon: ShieldCheck, ownerOnly: false },
+  { href: "/admin/logs", label: "Logs e Atividades", icon: ScrollText, ownerOnly: false },
+  { href: "/admin/configuracoes", label: "Configurações", icon: Settings, ownerOnly: true },
 ] as const
 
 export function SidebarNav({ role, onNavigate }: { role: AdminRole; onNavigate?: () => void }) {
@@ -20,7 +20,7 @@ export function SidebarNav({ role, onNavigate }: { role: AdminRole; onNavigate?:
   return (
     <nav className="flex flex-col gap-1 px-3">
       {NAV_ITEMS.filter((item) => !item.ownerOnly || role === "OWNER").map((item) => {
-        const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)
+        const isActive = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href)
         const Icon = item.icon
         return (
           <Link

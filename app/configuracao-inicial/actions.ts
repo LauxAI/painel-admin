@@ -65,5 +65,5 @@ export async function createFirstOwner(_prevState: SetupState, formData: FormDat
   const supabase = await createClient()
   await supabase.auth.signInWithPassword({ email, password })
 
-  redirect("/")
+  redirect("/admin")
 }

@@ -24,11 +24,11 @@ export async function signIn(_prevState: LoginState, formData: FormData): Promis
 
   const { data: profile } = await supabase
     .from("admin_profiles")
-    .select("id, name, status")
+    .select("id, name, status, role")
     .eq("id", data.user.id)
     .maybeSingle()
 
-  if (!profile) {
+  if (!profile || (profile.role !== "OWNER" && profile.role !== "ADMIN")) {
     await supabase.auth.signOut()
     return { error: "Esta conta não possui acesso ao painel administrativo." }
   }
@@ -49,5 +49,5 @@ export async function signIn(_prevState: LoginState, formData: FormData): Promis
     description: `${profile.name} entrou no painel.`,
   })
 
-  redirect("/")
+  redirect("/admin")
 }
