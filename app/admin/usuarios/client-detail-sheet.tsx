@@ -103,6 +103,7 @@ export function ClientDetailSheet({
               <TabsTrigger value="geral">Visão geral</TabsTrigger>
               <TabsTrigger value="plano">Plano</TabsTrigger>
               <TabsTrigger value="atividade">Atividade</TabsTrigger>
+              <TabsTrigger value="suporte">Suporte</TabsTrigger>
             </TabsList>
 
             <TabsContent value="geral" className="flex flex-col gap-4 pt-4">
@@ -261,6 +262,13 @@ export function ClientDetailSheet({
                   </div>
                 ))
               )}
+            </TabsContent>
+
+            <TabsContent value="suporte" className="flex flex-col gap-2 pt-4">
+              <p className="py-8 text-center text-sm text-pretty text-muted-foreground">
+                Nenhum ticket de suporte vinculado a este cliente. A central de tickets ainda não está conectada a
+                uma tabela de dados.
+              </p>
             </TabsContent>
           </Tabs>
         </SheetContent>

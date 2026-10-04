@@ -17,6 +17,16 @@ export const ACTIVITY_ACTION_LABELS: Record<string, string> = {
   configuracoes_atualizadas: "Configurações atualizadas",
   perfil_atualizado: "Perfil atualizado",
   senha_atualizada: "Senha atualizada",
+  planos_financeiros_atualizados: "Configuração financeira de plano atualizada",
+  assinatura_criada: "Assinatura criada",
+  assinatura_cancelada: "Assinatura cancelada",
+  assinatura_reativada: "Assinatura reativada",
+  pagamento_registrado: "Pagamento registrado",
+  cortesia_aplicada: "Cortesia aplicada",
+  ticket_criado: "Ticket criado",
+  ticket_status_alterado: "Status de ticket alterado",
+  ticket_atribuido: "Ticket atribuído",
+  ticket_mensagem_enviada: "Mensagem de ticket enviada",
 }
 
 export function activityActionLabel(actionType: string) {

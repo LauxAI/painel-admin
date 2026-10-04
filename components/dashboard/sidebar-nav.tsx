@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Users, ShieldCheck, ScrollText, Settings } from "lucide-react"
+import { LayoutDashboard, Users, ShieldCheck, ScrollText, Settings, Wallet, LifeBuoy } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { AdminRole } from "@/lib/types"
 
@@ -10,6 +10,8 @@ const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, ownerOnly: false },
   { href: "/admin/usuarios", label: "Usuários e Contas", icon: Users, ownerOnly: false },
   { href: "/admin/administradores", label: "Administradores", icon: ShieldCheck, ownerOnly: false },
+  { href: "/admin/financeiro", label: "Financeiro", icon: Wallet, ownerOnly: false },
+  { href: "/admin/suporte", label: "Suporte", icon: LifeBuoy, ownerOnly: false },
   { href: "/admin/logs", label: "Logs e Atividades", icon: ScrollText, ownerOnly: false },
   { href: "/admin/configuracoes", label: "Configurações", icon: Settings, ownerOnly: true },
 ] as const

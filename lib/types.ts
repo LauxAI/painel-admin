@@ -95,3 +95,70 @@ export const ADMIN_ROLE_LABELS: Record<AdminRole, string> = {
   OWNER: "Owner",
   ADMIN: "Administrador",
 }
+
+/**
+ * Forward-looking union types for the Financeiro and Suporte modules.
+ * There is no `subscriptions`, `payments`, or `support_tickets` table yet
+ * (see v0_plans/strategic-guide.md, section C, for the proposed schema) —
+ * these types exist only so UI components have a stable shape to build
+ * against today and require no changes once the tables are created.
+ */
+export type SubscriptionStatus = "ativa" | "pendente" | "em_atraso" | "cancelada" | "expirada"
+export type PaymentStatus = "aprovado" | "pendente" | "recusado" | "estornado" | "cancelado"
+export type TicketStatus = "aberto" | "em_atendimento" | "aguardando_cliente" | "resolvido" | "fechado"
+export type TicketPriority = "baixa" | "normal" | "alta" | "urgente"
+export type TicketCategory =
+  | "conta"
+  | "pagamento"
+  | "plano"
+  | "integracao"
+  | "automacao"
+  | "ia"
+  | "whatsapp"
+  | "erro_tecnico"
+  | "duvida"
+  | "outro"
+
+export const SUBSCRIPTION_STATUS_LABELS: Record<SubscriptionStatus, string> = {
+  ativa: "Ativa",
+  pendente: "Pendente",
+  em_atraso: "Em atraso",
+  cancelada: "Cancelada",
+  expirada: "Expirada",
+}
+
+export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
+  aprovado: "Aprovado",
+  pendente: "Pendente",
+  recusado: "Recusado",
+  estornado: "Estornado",
+  cancelado: "Cancelado",
+}
+
+export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
+  aberto: "Aberto",
+  em_atendimento: "Em atendimento",
+  aguardando_cliente: "Aguardando cliente",
+  resolvido: "Resolvido",
+  fechado: "Fechado",
+}
+
+export const TICKET_PRIORITY_LABELS: Record<TicketPriority, string> = {
+  baixa: "Baixa",
+  normal: "Normal",
+  alta: "Alta",
+  urgente: "Urgente",
+}
+
+export const TICKET_CATEGORY_LABELS: Record<TicketCategory, string> = {
+  conta: "Conta",
+  pagamento: "Pagamento",
+  plano: "Plano",
+  integracao: "Integração",
+  automacao: "Automação",
+  ia: "IA",
+  whatsapp: "WhatsApp",
+  erro_tecnico: "Erro técnico",
+  duvida: "Dúvida",
+  outro: "Outro",
+}
