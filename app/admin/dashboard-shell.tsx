@@ -10,6 +10,13 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin": "Dashboard",
   "/admin/usuarios": "Usuários e Contas",
   "/admin/administradores": "Administradores",
+  "/admin/financeiro": "Financeiro",
+  "/admin/financeiro/assinaturas": "Assinaturas",
+  "/admin/financeiro/pagamentos": "Pagamentos",
+  "/admin/financeiro/inadimplencia": "Inadimplência",
+  "/admin/financeiro/planos": "Planos",
+  "/admin/suporte": "Suporte",
+  "/admin/suporte/tickets": "Tickets",
   "/admin/logs": "Logs e Atividades",
   "/admin/configuracoes": "Configurações",
 }
