@@ -255,29 +255,29 @@ export function AdminsTable({
                           />
                           <DropdownMenuContent align="end">
                             {admin.role === "ADMIN" ? (
-                              <DropdownMenuItem onSelect={() => setChangingRole({ admin, role: "OWNER" })}>
+                              <DropdownMenuItem onClick={() => setChangingRole({ admin, role: "OWNER" })}>
                                 <ShieldCheck className="size-4" />
                                 Promover a Owner
                               </DropdownMenuItem>
                             ) : (
-                              <DropdownMenuItem onSelect={() => setChangingRole({ admin, role: "ADMIN" })}>
+                              <DropdownMenuItem onClick={() => setChangingRole({ admin, role: "ADMIN" })}>
                                 <Shield className="size-4" />
                                 Rebaixar a Administrador
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
                             {admin.status === "ativo" ? (
-                              <DropdownMenuItem onSelect={() => setSuspending(admin)}>
+                              <DropdownMenuItem onClick={() => setSuspending(admin)}>
                                 <Ban className="size-4" />
                                 Suspender acesso
                               </DropdownMenuItem>
                             ) : (
-                              <DropdownMenuItem onSelect={() => handleReactivate(admin)}>
+                              <DropdownMenuItem onClick={() => handleReactivate(admin)}>
                                 <CheckCircle2 className="size-4" />
                                 Reativar acesso
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(admin)}>
+                            <DropdownMenuItem variant="destructive" onClick={() => setDeleting(admin)}>
                               <Trash2 className="size-4" />
                               Remover administrador
                             </DropdownMenuItem>
