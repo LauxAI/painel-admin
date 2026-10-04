@@ -4,6 +4,14 @@ import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { getCurrentAdmin } from "@/lib/get-current-admin"
 import { logActivity } from "@/lib/log-activity"
+import { DEFAULT_ORGANIZATION_SETTINGS, type OrganizationSettings } from "@/app/admin/configuracoes/types"
+
+async function readOrganizationSettings(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<OrganizationSettings> {
+  const { data } = await supabase.from("app_settings").select("value").eq("key", "organizacao").maybeSingle()
+  return { ...DEFAULT_ORGANIZATION_SETTINGS, ...(data?.value as Partial<OrganizationSettings> | undefined) }
+}
 
 export async function updateOrganizationSettings(formData: FormData) {
   const admin = await getCurrentAdmin()
@@ -11,14 +19,27 @@ export async function updateOrganizationSettings(formData: FormData) {
 
   const name = String(formData.get("name") ?? "").trim()
   const supportEmail = String(formData.get("supportEmail") ?? "").trim()
+  const displayName = String(formData.get("displayName") ?? "").trim()
+  const phone = String(formData.get("phone") ?? "").trim()
+  const website = String(formData.get("website") ?? "").trim()
+  const logoUrl = String(formData.get("logoUrl") ?? "").trim()
 
   if (!name) throw new Error("Informe o nome da organização.")
 
   const supabase = await createClient()
+  const current = await readOrganizationSettings(supabase)
 
   const { error } = await supabase.from("app_settings").upsert({
     key: "organizacao",
-    value: { name, support_email: supportEmail || null },
+    value: {
+      ...current,
+      name,
+      support_email: supportEmail || null,
+      display_name: displayName || null,
+      phone: phone || null,
+      website: website || null,
+      logo_url: logoUrl || null,
+    },
     updated_at: new Date().toISOString(),
     updated_by: admin.id,
   })
@@ -34,7 +55,46 @@ export async function updateOrganizationSettings(formData: FormData) {
     description: `${admin.name} atualizou os dados da organização.`,
   })
 
-  revalidatePath("/configuracoes")
+  revalidatePath("/admin/configuracoes")
+}
+
+export async function updateOrganizationPreferences(formData: FormData) {
+  const admin = await getCurrentAdmin()
+  if (admin.role !== "OWNER") throw new Error("Apenas o Owner pode alterar estas preferências.")
+
+  const timezone = String(formData.get("timezone") ?? "").trim()
+  const language = String(formData.get("language") ?? "").trim()
+  const dateFormat = String(formData.get("dateFormat") ?? "").trim()
+  const timeFormat = String(formData.get("timeFormat") ?? "").trim()
+
+  const supabase = await createClient()
+  const current = await readOrganizationSettings(supabase)
+
+  const { error } = await supabase.from("app_settings").upsert({
+    key: "organizacao",
+    value: {
+      ...current,
+      timezone: timezone || null,
+      language: language || null,
+      date_format: dateFormat || null,
+      time_format: timeFormat || null,
+    },
+    updated_at: new Date().toISOString(),
+    updated_by: admin.id,
+  })
+
+  if (error) throw new Error("Não foi possível salvar as preferências.")
+
+  await logActivity(supabase, {
+    actorId: admin.id,
+    actorName: admin.name,
+    actionType: "configuracoes_atualizadas",
+    entityType: "app_settings",
+    entityId: "organizacao_preferencias",
+    description: `${admin.name} atualizou as preferências gerais da organização.`,
+  })
+
+  revalidatePath("/admin/configuracoes")
 }
 
 export async function updateOwnProfile(formData: FormData) {
