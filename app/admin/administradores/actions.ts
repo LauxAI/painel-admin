@@ -5,11 +5,13 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { getCurrentAdmin } from "@/lib/get-current-admin"
 import { generateInviteToken } from "@/lib/invites"
 import { logActivity } from "@/lib/log-activity"
+import { ADMIN_ROLE_LABELS } from "@/lib/types"
 import type { AdminRole, AdminStatus } from "@/lib/types"
 
 export type AdminFormState = { error?: string; inviteUrl?: string } | null
 
 const INVITE_TTL_DAYS = 7
+const ROLE_LABEL = ADMIN_ROLE_LABELS
 
 function assertOwner(role: AdminRole) {
   if (role !== "OWNER") {
@@ -135,6 +137,15 @@ export async function cancelAdminInvite(inviteId: string, name: string) {
   revalidatePath("/administradores")
 }
 
+async function countActiveOwners(db: ReturnType<typeof createAdminClient>) {
+  const { count } = await db
+    .from("admin_profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("role", "OWNER")
+    .eq("status", "ativo")
+  return count ?? 0
+}
+
 export async function changeAdminRole(id: string, role: AdminRole, targetName: string) {
   const admin = await getCurrentAdmin()
   assertOwner(admin.role)
@@ -143,7 +154,17 @@ export async function changeAdminRole(id: string, role: AdminRole, targetName: s
   }
   const db = createAdminClient()
 
-  const { data: before } = await db.from("admin_profiles").select("role").eq("id", id).maybeSingle()
+  const { data: before } = await db.from("admin_profiles").select("role, status").eq("id", id).maybeSingle()
+  if (!before) {
+    throw new Error("Administrador não encontrado.")
+  }
+
+  if (before.role === "OWNER" && role === "ADMIN") {
+    const activeOwners = await countActiveOwners(db)
+    if (before.status === "ativo" && activeOwners <= 1) {
+      throw new Error("Não é possível rebaixar o único Owner ativo da conta.")
+    }
+  }
 
   const { error } = await db.from("admin_profiles").update({ role }).eq("id", id)
   if (error) throw new Error("Não foi possível alterar a função.")
@@ -154,8 +175,8 @@ export async function changeAdminRole(id: string, role: AdminRole, targetName: s
     actionType: "administrador_funcao_alterada",
     entityType: "admin_profile",
     entityId: id,
-    description: `${admin.name} alterou a função de ${targetName} para "${role}".`,
-    metadata: { before: before?.role ?? null, after: role },
+    description: `${admin.name} alterou a função de ${targetName} de "${ROLE_LABEL[before.role as AdminRole]}" para "${ROLE_LABEL[role]}".`,
+    metadata: { before: before.role, after: role },
   })
 
   revalidatePath("/administradores")
@@ -169,7 +190,17 @@ export async function changeAdminStatus(id: string, status: AdminStatus, targetN
   }
   const db = createAdminClient()
 
-  const { data: before } = await db.from("admin_profiles").select("status").eq("id", id).maybeSingle()
+  const { data: before } = await db.from("admin_profiles").select("role, status").eq("id", id).maybeSingle()
+  if (!before) {
+    throw new Error("Administrador não encontrado.")
+  }
+
+  if (status === "suspenso" && before.role === "OWNER" && before.status === "ativo") {
+    const activeOwners = await countActiveOwners(db)
+    if (activeOwners <= 1) {
+      throw new Error("Não é possível suspender o único Owner ativo da conta.")
+    }
+  }
 
   const { error } = await db.from("admin_profiles").update({ status }).eq("id", id)
   if (error) throw new Error("Não foi possível alterar o status.")
@@ -180,8 +211,11 @@ export async function changeAdminStatus(id: string, status: AdminStatus, targetN
     actionType: "administrador_status_alterado",
     entityType: "admin_profile",
     entityId: id,
-    description: `${admin.name} alterou o status de ${targetName} para "${status}".`,
-    metadata: { before: before?.status ?? null, after: status },
+    description:
+      status === "suspenso"
+        ? `${admin.name} suspendeu o acesso do administrador ${targetName}.`
+        : `${admin.name} reativou o acesso do administrador ${targetName}.`,
+    metadata: { before: before.status, after: status },
   })
 
   revalidatePath("/administradores")
@@ -195,17 +229,23 @@ export async function removeAdmin(id: string, targetName: string) {
   }
   const db = createAdminClient()
 
-  const { count } = await db.from("admin_profiles").select("id", { count: "exact", head: true }).eq("role", "OWNER")
-
-  const { data: target } = await db.from("admin_profiles").select("role").eq("id", id).maybeSingle()
-  if (target?.role === "OWNER" && (count ?? 0) <= 1) {
-    throw new Error("Não é possível remover o único Owner da conta.")
+  const { data: target } = await db.from("admin_profiles").select("role, status").eq("id", id).maybeSingle()
+  if (!target) {
+    throw new Error("Administrador não encontrado.")
   }
 
+  if (target.role === "OWNER" && target.status === "ativo") {
+    const activeOwners = await countActiveOwners(db)
+    if (activeOwners <= 1) {
+      throw new Error("Não é possível remover o único Owner ativo da conta.")
+    }
+  }
+
+  // Revoke admin access only. The underlying auth.users record is preserved
+  // (not deleted) so login history, other associations, and activity_logs
+  // attribution remain intact — this user simply stops being an administrator.
   const { error } = await db.from("admin_profiles").delete().eq("id", id)
   if (error) throw new Error("Não foi possível remover o administrador.")
-
-  await db.auth.admin.deleteUser(id)
 
   await logActivity(db, {
     actorId: admin.id,
@@ -213,7 +253,8 @@ export async function removeAdmin(id: string, targetName: string) {
     actionType: "administrador_removido",
     entityType: "admin_profile",
     entityId: id,
-    description: `${admin.name} removeu o administrador ${targetName}.`,
+    description: `${admin.name} removeu o acesso administrativo de ${targetName}.`,
+    metadata: { role: target.role },
   })
 
   revalidatePath("/administradores")

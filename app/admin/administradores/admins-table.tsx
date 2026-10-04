@@ -51,6 +51,8 @@ export function AdminsTable({
   isOwner: boolean
 }) {
   const [deleting, setDeleting] = useState<AdminProfile | null>(null)
+  const [changingRole, setChangingRole] = useState<{ admin: AdminProfile; role: AdminRole } | null>(null)
+  const [suspending, setSuspending] = useState<AdminProfile | null>(null)
   const [isPending, startTransition] = useTransition()
 
   const rows: Row[] = useMemo(
@@ -88,24 +90,45 @@ export function AdminsTable({
     })
   }
 
-  function handleRoleChange(admin: AdminProfile, role: AdminRole) {
+  function confirmRoleChange() {
+    if (!changingRole) return
+    const { admin, role } = changingRole
     startTransition(async () => {
       try {
         await changeAdminRole(admin.id, role, admin.name)
-        toast.success(`Função atualizada para "${ADMIN_ROLE_LABELS[role]}".`)
+        toast.success(
+          role === "OWNER" ? `${admin.name} foi promovido a Owner.` : `${admin.name} foi rebaixado a Administrador.`,
+        )
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Não foi possível alterar a função.")
+      } finally {
+        setChangingRole(null)
       }
     })
   }
 
-  function handleStatusChange(admin: AdminProfile, status: AdminStatus) {
+  function confirmSuspend() {
+    if (!suspending) return
+    const admin = suspending
     startTransition(async () => {
       try {
-        await changeAdminStatus(admin.id, status, admin.name)
-        toast.success(status === "ativo" ? "Administrador reativado." : "Administrador suspenso.")
+        await changeAdminStatus(admin.id, "suspenso", admin.name)
+        toast.success(`Acesso de ${admin.name} suspenso.`)
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Não foi possível alterar o status.")
+        toast.error(error instanceof Error ? error.message : "Não foi possível suspender o acesso.")
+      } finally {
+        setSuspending(null)
+      }
+    })
+  }
+
+  function handleReactivate(admin: AdminProfile) {
+    startTransition(async () => {
+      try {
+        await changeAdminStatus(admin.id, "ativo", admin.name)
+        toast.success(`Acesso de ${admin.name} reativado.`)
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Não foi possível reativar o acesso.")
       }
     })
   }
@@ -230,24 +253,24 @@ export function AdminsTable({
                           />
                           <DropdownMenuContent align="end">
                             {admin.role === "ADMIN" ? (
-                              <DropdownMenuItem onSelect={() => handleRoleChange(admin, "OWNER")}>
+                              <DropdownMenuItem onSelect={() => setChangingRole({ admin, role: "OWNER" })}>
                                 <ShieldCheck className="size-4" />
                                 Promover a Owner
                               </DropdownMenuItem>
                             ) : (
-                              <DropdownMenuItem onSelect={() => handleRoleChange(admin, "ADMIN")}>
+                              <DropdownMenuItem onSelect={() => setChangingRole({ admin, role: "ADMIN" })}>
                                 <Shield className="size-4" />
                                 Rebaixar a Administrador
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
                             {admin.status === "ativo" ? (
-                              <DropdownMenuItem onSelect={() => handleStatusChange(admin, "suspenso")}>
+                              <DropdownMenuItem onSelect={() => setSuspending(admin)}>
                                 <Ban className="size-4" />
                                 Suspender acesso
                               </DropdownMenuItem>
                             ) : (
-                              <DropdownMenuItem onSelect={() => handleStatusChange(admin, "ativo")}>
+                              <DropdownMenuItem onSelect={() => handleReactivate(admin)}>
                                 <CheckCircle2 className="size-4" />
                                 Reativar acesso
                               </DropdownMenuItem>
@@ -268,17 +291,94 @@ export function AdminsTable({
         </Table>
       </div>
 
+      <AlertDialog open={!!changingRole} onOpenChange={(open) => !open && setChangingRole(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {changingRole?.role === "OWNER" ? "Promover administrador?" : "Rebaixar administrador?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {changingRole?.role === "OWNER"
+                ? "Este usuário passará a ter permissões completas de Owner."
+                : "Este usuário perderá as permissões administrativas atuais de Owner."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex flex-col gap-1 rounded-md border border-border bg-muted/40 p-3 text-sm">
+            <span className="text-foreground">
+              Administrador: <span className="font-medium">{changingRole?.admin.name}</span>
+            </span>
+            <span>
+              Cargo atual:{" "}
+              <span className="font-medium text-foreground">
+                {changingRole ? ADMIN_ROLE_LABELS[changingRole.admin.role] : ""}
+              </span>
+            </span>
+            <span>
+              Novo cargo:{" "}
+              <span className="font-medium text-foreground">
+                {changingRole ? ADMIN_ROLE_LABELS[changingRole.role] : ""}
+              </span>
+            </span>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRoleChange} disabled={isPending}>
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!suspending} onOpenChange={(open) => !open && setSuspending(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Suspender acesso?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {suspending?.name} perderá imediatamente o acesso ao painel administrativo até que o acesso seja
+              reativado por um Owner.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex flex-col gap-1 rounded-md border border-border bg-muted/40 p-3 text-sm">
+            <span className="text-foreground">
+              Administrador: <span className="font-medium">{suspending?.name}</span>
+            </span>
+            <span>
+              Cargo: <span className="font-medium text-foreground">{suspending ? ADMIN_ROLE_LABELS[suspending.role] : ""}</span>
+            </span>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmSuspend} disabled={isPending}>
+              Suspender
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remover administrador?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação removerá permanentemente o acesso de {deleting?.name}. Não é possível desfazer.
+              Este usuário perderá permanentemente o acesso administrativo. Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="flex flex-col gap-1 rounded-md border border-border bg-muted/40 p-3 text-sm">
+            <span className="text-foreground">
+              Nome: <span className="font-medium">{deleting?.name}</span>
+            </span>
+            <span>
+              Email: <span className="font-medium text-foreground">{deleting?.email}</span>
+            </span>
+            <span>
+              Cargo: <span className="font-medium text-foreground">{deleting ? ADMIN_ROLE_LABELS[deleting.role] : ""}</span>
+            </span>
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Remover</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} disabled={isPending}>
+              Remover
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
