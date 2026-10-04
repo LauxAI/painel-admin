@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { getCurrentAdmin } from "@/lib/get-current-admin"
 import { generateInviteToken } from "@/lib/invites"
 import { logActivity } from "@/lib/log-activity"
+import { isPrimaryOwnerEmail } from "@/lib/primary-owner"
 import { ADMIN_ROLE_LABELS } from "@/lib/types"
 import type { AdminRole, AdminStatus } from "@/lib/types"
 
@@ -154,9 +155,13 @@ export async function changeAdminRole(id: string, role: AdminRole, targetName: s
   }
   const db = createAdminClient()
 
-  const { data: before } = await db.from("admin_profiles").select("role, status").eq("id", id).maybeSingle()
+  const { data: before } = await db.from("admin_profiles").select("role, status, email").eq("id", id).maybeSingle()
   if (!before) {
     throw new Error("Administrador não encontrado.")
+  }
+
+  if (isPrimaryOwnerEmail(before.email)) {
+    throw new Error("Não é possível alterar as permissões deste administrador.")
   }
 
   if (before.role === "OWNER" && role === "ADMIN") {
@@ -190,9 +195,13 @@ export async function changeAdminStatus(id: string, status: AdminStatus, targetN
   }
   const db = createAdminClient()
 
-  const { data: before } = await db.from("admin_profiles").select("role, status").eq("id", id).maybeSingle()
+  const { data: before } = await db.from("admin_profiles").select("role, status, email").eq("id", id).maybeSingle()
   if (!before) {
     throw new Error("Administrador não encontrado.")
+  }
+
+  if (isPrimaryOwnerEmail(before.email)) {
+    throw new Error("Não é possível alterar o status deste administrador.")
   }
 
   if (status === "suspenso" && before.role === "OWNER" && before.status === "ativo") {
@@ -229,9 +238,13 @@ export async function removeAdmin(id: string, targetName: string) {
   }
   const db = createAdminClient()
 
-  const { data: target } = await db.from("admin_profiles").select("role, status").eq("id", id).maybeSingle()
+  const { data: target } = await db.from("admin_profiles").select("role, status, email").eq("id", id).maybeSingle()
   if (!target) {
     throw new Error("Administrador não encontrado.")
+  }
+
+  if (isPrimaryOwnerEmail(target.email)) {
+    throw new Error("Não é possível remover este administrador.")
   }
 
   if (target.role === "OWNER" && target.status === "ativo") {

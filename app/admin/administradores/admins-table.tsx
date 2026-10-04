@@ -30,6 +30,7 @@ import {
   removeAdmin,
   resendAdminInvite,
 } from "@/app/admin/administradores/actions"
+import { isPrimaryOwnerEmail } from "@/lib/primary-owner"
 import { ADMIN_STATUS_BADGE, INVITE_STATUS_BADGE } from "@/lib/status-styles"
 import { ADMIN_ROLE_LABELS } from "@/lib/types"
 import { formatDateTime } from "@/lib/format"
@@ -220,6 +221,7 @@ export function AdminsTable({
 
                 const admin = row.data
                 const isSelf = admin.id === currentAdminId
+                const isProtected = isPrimaryOwnerEmail(admin.email)
                 return (
                   <TableRow key={admin.id}>
                     <TableCell>
@@ -241,7 +243,7 @@ export function AdminsTable({
                       {formatDateTime(admin.last_sign_in_at)}
                     </TableCell>
                     <TableCell>
-                      {isOwner && !isSelf ? (
+                      {isOwner && !isSelf && !isProtected ? (
                         <DropdownMenu>
                           <DropdownMenuTrigger
                             render={
