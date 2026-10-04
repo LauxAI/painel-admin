@@ -143,6 +143,8 @@ export async function changeAdminRole(id: string, role: AdminRole, targetName: s
   }
   const db = createAdminClient()
 
+  const { data: before } = await db.from("admin_profiles").select("role").eq("id", id).maybeSingle()
+
   const { error } = await db.from("admin_profiles").update({ role }).eq("id", id)
   if (error) throw new Error("Não foi possível alterar a função.")
 
@@ -153,6 +155,7 @@ export async function changeAdminRole(id: string, role: AdminRole, targetName: s
     entityType: "admin_profile",
     entityId: id,
     description: `${admin.name} alterou a função de ${targetName} para "${role}".`,
+    metadata: { before: before?.role ?? null, after: role },
   })
 
   revalidatePath("/administradores")
@@ -166,6 +169,8 @@ export async function changeAdminStatus(id: string, status: AdminStatus, targetN
   }
   const db = createAdminClient()
 
+  const { data: before } = await db.from("admin_profiles").select("status").eq("id", id).maybeSingle()
+
   const { error } = await db.from("admin_profiles").update({ status }).eq("id", id)
   if (error) throw new Error("Não foi possível alterar o status.")
 
@@ -176,6 +181,7 @@ export async function changeAdminStatus(id: string, status: AdminStatus, targetN
     entityType: "admin_profile",
     entityId: id,
     description: `${admin.name} alterou o status de ${targetName} para "${status}".`,
+    metadata: { before: before?.status ?? null, after: status },
   })
 
   revalidatePath("/administradores")
