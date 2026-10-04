@@ -8,12 +8,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { updateOrganizationSettings } from "@/app/admin/configuracoes/actions"
+import type { OrganizationSettings } from "@/app/admin/configuracoes/types"
 
 export function OrganizationSettingsForm({
   organization,
   isOwner,
 }: {
-  organization: { name: string; support_email: string | null }
+  organization: OrganizationSettings
   isOwner: boolean
 }) {
   const [isPending, startTransition] = useTransition()
@@ -52,6 +53,16 @@ export function OrganizationSettingsForm({
             />
           </div>
           <div className="flex flex-col gap-2">
+            <Label htmlFor="org-display-name">Nome de exibição</Label>
+            <Input
+              id="org-display-name"
+              name="displayName"
+              defaultValue={organization.display_name ?? ""}
+              placeholder="Como o nome aparece no painel"
+              disabled={!isOwner}
+            />
+          </div>
+          <div className="flex flex-col gap-2">
             <Label htmlFor="org-support-email">E-mail de suporte</Label>
             <Input
               id="org-support-email"
@@ -59,6 +70,39 @@ export function OrganizationSettingsForm({
               type="email"
               defaultValue={organization.support_email ?? ""}
               placeholder="suporte@empresa.com"
+              disabled={!isOwner}
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="org-phone">Telefone</Label>
+            <Input
+              id="org-phone"
+              name="phone"
+              type="tel"
+              defaultValue={organization.phone ?? ""}
+              placeholder="(00) 00000-0000"
+              disabled={!isOwner}
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="org-website">Site</Label>
+            <Input
+              id="org-website"
+              name="website"
+              type="url"
+              defaultValue={organization.website ?? ""}
+              placeholder="https://suaempresa.com"
+              disabled={!isOwner}
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="org-logo-url">Logo da organização (URL)</Label>
+            <Input
+              id="org-logo-url"
+              name="logoUrl"
+              type="url"
+              defaultValue={organization.logo_url ?? ""}
+              placeholder="https://suaempresa.com/logo.png"
               disabled={!isOwner}
             />
           </div>
