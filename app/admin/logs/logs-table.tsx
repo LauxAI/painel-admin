@@ -1,100 +1,139 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { Search } from "lucide-react"
+import { useState, useTransition } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { activityActionLabel, activityActionTone, ACTIVITY_TONE_CLASSES } from "@/lib/activity-labels"
 import { formatDateTime } from "@/lib/format"
+import { LogDetailSheet } from "@/app/admin/logs/log-detail-sheet"
 import type { ActivityLog } from "@/lib/types"
 
-export function LogsTable({ logs }: { logs: ActivityLog[] }) {
-  const [search, setSearch] = useState("")
-  const [actionFilter, setActionFilter] = useState<string>("todos")
+type EnrichedLog = ActivityLog & { relatedLabel: string | null }
 
-  const actionOptions = useMemo(() => {
-    const unique = new Set(logs.map((log) => log.action_type))
-    return Array.from(unique).sort()
-  }, [logs])
+export function LogsTable({
+  logs,
+  totalCount,
+  page,
+  totalPages,
+  pageSize,
+  error,
+}: {
+  logs: EnrichedLog[]
+  totalCount: number
+  page: number
+  totalPages: number
+  pageSize: number
+  error: string | null
+}) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const [, startTransition] = useTransition()
+  const [viewing, setViewing] = useState<EnrichedLog | null>(null)
 
-  const filteredLogs = useMemo(() => {
-    const query = search.trim().toLowerCase()
-    return logs.filter((log) => {
-      if (actionFilter !== "todos" && log.action_type !== actionFilter) return false
-      if (!query) return true
-      return (
-        log.actor_name.toLowerCase().includes(query) ||
-        log.description.toLowerCase().includes(query) ||
-        activityActionLabel(log.action_type).toLowerCase().includes(query)
-      )
+  function goToPage(nextPage: number) {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set("pagina", String(nextPage))
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`)
     })
-  }, [logs, search, actionFilter])
+  }
+
+  const rangeStart = totalCount === 0 ? 0 : (page - 1) * pageSize + 1
+  const rangeEnd = Math.min(page * pageSize, totalCount)
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1 sm:max-w-sm">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar por responsável ou descrição..."
-            className="pl-9"
-          />
+      {error ? (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          Não foi possível carregar os registros: {error}
         </div>
-        <Select value={actionFilter} onValueChange={setActionFilter}>
-          <SelectTrigger className="sm:w-56">
-            <SelectValue placeholder="Filtrar por ação" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todas as ações</SelectItem>
-            {actionOptions.map((action) => (
-              <SelectItem key={action} value={action}>
-                {activityActionLabel(action)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      ) : null}
 
       <div className="overflow-hidden rounded-lg border border-border">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Quando</TableHead>
-              <TableHead>Responsável</TableHead>
+              <TableHead>Administrador</TableHead>
+              <TableHead>Empresa/conta</TableHead>
               <TableHead>Ação</TableHead>
               <TableHead>Descrição</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredLogs.length === 0 ? (
+            {logs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center text-sm text-muted-foreground">
-                  Nenhum registro encontrado.
+                <TableCell colSpan={5} className="h-24 text-center text-sm text-muted-foreground">
+                  Nenhum registro encontrado para os filtros selecionados.
                 </TableCell>
               </TableRow>
             ) : (
-              filteredLogs.map((log) => (
-                <TableRow key={log.id}>
+              logs.map((log) => (
+                <TableRow
+                  key={log.id}
+                  className="cursor-pointer"
+                  onClick={() => setViewing(log)}
+                >
                   <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                     {formatDateTime(log.created_at)}
                   </TableCell>
                   <TableCell className="font-medium text-foreground">{log.actor_name}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{log.relatedLabel ?? "—"}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className={ACTIVITY_TONE_CLASSES[activityActionTone(log.action_type)]}>
                       {activityActionLabel(log.action_type)}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{log.description}</TableCell>
+                  <TableCell className="max-w-sm truncate text-sm text-muted-foreground">
+                    {log.description}
+                  </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
       </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted-foreground">
+          {totalCount === 0
+            ? "Nenhum registro"
+            : `Mostrando ${rangeStart}–${rangeEnd} de ${totalCount} registro(s)`}
+        </p>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => goToPage(page - 1)}
+            className="gap-1"
+          >
+            <ChevronLeft className="size-4" />
+            Anterior
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Página {page} de {totalPages}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => goToPage(page + 1)}
+            className="gap-1"
+          >
+            Próxima
+            <ChevronRight className="size-4" />
+          </Button>
+        </div>
+      </div>
+
+      <LogDetailSheet log={viewing} open={!!viewing} onOpenChange={(open) => !open && setViewing(null)} />
     </div>
   )
 }

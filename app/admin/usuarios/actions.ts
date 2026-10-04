@@ -138,6 +138,8 @@ export async function changeClientStatus(id: string, status: ClientStatus, clien
   const admin = await getCurrentAdmin()
   const db = createAdminClient()
 
+  const { data: before } = await db.from("client_accounts").select("status").eq("id", id).maybeSingle()
+
   const { error } = await db
     .from("client_accounts")
     .update({ status, updated_at: new Date().toISOString() })
@@ -152,6 +154,7 @@ export async function changeClientStatus(id: string, status: ClientStatus, clien
     entityType: "client_account",
     entityId: id,
     description: `${admin.name} alterou o status de ${clientName} para "${status}".`,
+    metadata: { before: before?.status ?? null, after: status },
   })
 
   revalidatePath("/usuarios")
@@ -179,6 +182,12 @@ export async function updateClientPeriod(
     throw new Error("A data de início não pode ser depois da data de vencimento.")
   }
 
+  const { data: before } = await db
+    .from("client_accounts")
+    .select("plan, account_start_date, account_expiration_date")
+    .eq("id", id)
+    .maybeSingle()
+
   const { error } = await db
     .from("client_accounts")
     .update({
@@ -198,6 +207,18 @@ export async function updateClientPeriod(
     entityType: "client_account",
     entityId: id,
     description: `${admin.name} alterou o plano de ${clientName} para "${PLAN_LABELS[input.plan]}" (${input.accountStartDate ?? "sem início"} → ${input.accountExpirationDate ?? "sem vencimento"}).`,
+    metadata: {
+      before: {
+        plan: before?.plan ?? null,
+        accountStartDate: before?.account_start_date ?? null,
+        accountExpirationDate: before?.account_expiration_date ?? null,
+      },
+      after: {
+        plan: input.plan,
+        accountStartDate: input.accountStartDate,
+        accountExpirationDate: input.accountExpirationDate,
+      },
+    },
   })
 
   revalidatePath("/usuarios")

@@ -8,6 +8,7 @@ export const ACTIVITY_ACTION_LABELS: Record<string, string> = {
   cliente_convidado: "Cliente convidado",
   cliente_atualizado: "Cliente atualizado",
   cliente_status_alterado: "Status de cliente alterado",
+  cliente_plano_alterado: "Plano/validade do cliente alterado",
   cliente_removido: "Cliente removido",
   administrador_convidado: "Administrador convidado",
   administrador_funcao_alterada: "Função de administrador alterada",
@@ -31,7 +32,11 @@ export function activityActionTone(actionType: string): "default" | "destructive
   if (actionType.includes("removido") || actionType === "auth.logout" || actionType.includes("cancelado")) {
     return "destructive"
   }
-  if (actionType.includes("status_alterado") || actionType.includes("funcao_alterada")) {
+  if (
+    actionType.includes("status_alterado") ||
+    actionType.includes("funcao_alterada") ||
+    actionType.includes("plano_alterado")
+  ) {
     return "warning"
   }
   return "default"
