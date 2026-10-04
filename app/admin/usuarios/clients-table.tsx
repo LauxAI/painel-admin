@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react"
 import { toast } from "sonner"
-import { Search, MoreHorizontal, RotateCcw, Ban, CheckCircle2, Trash2, Pencil } from "lucide-react"
+import { Search, MoreHorizontal, RotateCcw, Ban, CheckCircle2, Trash2, Pencil, Eye } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -26,10 +26,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { EditClientDialog } from "@/app/admin/usuarios/edit-client-dialog"
+import { ClientDetailSheet } from "@/app/admin/usuarios/client-detail-sheet"
 import { changeClientStatus, deleteClient, resendClientInvite } from "@/app/admin/usuarios/actions"
-import { CLIENT_STATUS_BADGE } from "@/lib/status-styles"
+import { CLIENT_STATUS_BADGE, PLAN_PERIOD_STATUS_BADGE } from "@/lib/status-styles"
 import { formatDate } from "@/lib/format"
-import type { ClientAccount, ClientStatus, Invite } from "@/lib/types"
+import { getDaysRemaining, getPlanPeriodStatus, PLAN_PERIOD_STATUS_LABELS } from "@/lib/plan-status"
+import type { ActivityLog, ClientAccount, ClientPlan, ClientStatus, Invite } from "@/lib/types"
 
 const STATUS_LABEL: Record<ClientStatus, string> = {
   ativo: "Ativo",
@@ -39,29 +41,64 @@ const STATUS_LABEL: Record<ClientStatus, string> = {
   cancelado: "Cancelado",
 }
 
-const PLAN_LABEL: Record<string, string> = { starter: "Starter", pro: "Pro", enterprise: "Enterprise" }
+const PLAN_LABEL: Record<ClientPlan, string> = { starter: "Starter", pro: "Pro", enterprise: "Enterprise" }
+
+type SortOption = "recentes" | "antigos" | "vencimento_proximo" | "vencimento_distante"
+
+const SORT_LABEL: Record<SortOption, string> = {
+  recentes: "Mais recentes",
+  antigos: "Mais antigos",
+  vencimento_proximo: "Vencimento mais próximo",
+  vencimento_distante: "Vencimento mais distante",
+}
 
 export function ClientsTable({
   clients,
   pendingInviteByClient,
+  activityByClient,
 }: {
   clients: ClientAccount[]
   pendingInviteByClient: Record<string, Invite>
+  activityByClient: Record<string, ActivityLog[]>
 }) {
   const [query, setQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("todos")
+  const [planFilter, setPlanFilter] = useState<string>("todos")
+  const [sortBy, setSortBy] = useState<SortOption>("recentes")
   const [editing, setEditing] = useState<ClientAccount | null>(null)
+  const [viewing, setViewing] = useState<ClientAccount | null>(null)
   const [deleting, setDeleting] = useState<ClientAccount | null>(null)
   const [isPending, startTransition] = useTransition()
 
   const filtered = useMemo(() => {
-    return clients.filter((client) => {
+    const result = clients.filter((client) => {
       const matchesStatus = statusFilter === "todos" || client.status === statusFilter
+      const matchesPlan = planFilter === "todos" || client.plan === planFilter
       const haystack = `${client.responsible_name} ${client.email} ${client.companies?.name ?? ""}`.toLowerCase()
       const matchesQuery = haystack.includes(query.toLowerCase())
-      return matchesStatus && matchesQuery
+      return matchesStatus && matchesPlan && matchesQuery
     })
-  }, [clients, statusFilter, query])
+
+    const sorted = [...result]
+    sorted.sort((a, b) => {
+      switch (sortBy) {
+        case "antigos":
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        case "vencimento_proximo":
+        case "vencimento_distante": {
+          const aDays = getDaysRemaining(a.account_expiration_date)
+          const bDays = getDaysRemaining(b.account_expiration_date)
+          if (aDays === null) return 1
+          if (bDays === null) return -1
+          return sortBy === "vencimento_proximo" ? aDays - bDays : bDays - aDays
+        }
+        case "recentes":
+        default:
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      }
+    })
+    return sorted
+  }, [clients, statusFilter, planFilter, query, sortBy])
 
   function copyInviteLink(token: string) {
     const url = `${window.location.origin}${token}`
@@ -118,13 +155,38 @@ export function ClientsTable({
             className="pl-9"
           />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-44">
+        <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value ?? "todos")}>
+          <SelectTrigger className="w-full sm:w-40">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos os status</SelectItem>
             {Object.entries(STATUS_LABEL).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={planFilter} onValueChange={(value) => setPlanFilter(value ?? "todos")}>
+          <SelectTrigger className="w-full sm:w-36">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os planos</SelectItem>
+            {Object.entries(PLAN_LABEL).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={sortBy} onValueChange={(value) => setSortBy((value as SortOption) ?? "recentes")}>
+          <SelectTrigger className="w-full sm:w-52">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(SORT_LABEL).map(([value, label]) => (
               <SelectItem key={value} value={value}>
                 {label}
               </SelectItem>
@@ -155,6 +217,8 @@ export function ClientsTable({
             ) : (
               filtered.map((client) => {
                 const invite = pendingInviteByClient[client.id]
+                const periodStatus = getPlanPeriodStatus(client.account_expiration_date)
+                const daysRemaining = getDaysRemaining(client.account_expiration_date)
                 return (
                   <TableRow key={client.id}>
                     <TableCell>
@@ -171,7 +235,26 @@ export function ClientsTable({
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(client.account_expiration_date)}
+                      <div className="flex flex-col gap-0.5">
+                        <span>{formatDate(client.account_expiration_date)}</span>
+                        {periodStatus !== "sem_periodo" ? (
+                          <span
+                            className={`text-xs ${
+                              periodStatus === "vencido"
+                                ? "text-destructive"
+                                : periodStatus === "proximo_vencimento"
+                                  ? "text-chart-2"
+                                  : "text-muted-foreground"
+                            }`}
+                          >
+                            {daysRemaining !== null && daysRemaining < 0
+                              ? `Vencido há ${Math.abs(daysRemaining)}d`
+                              : daysRemaining !== null
+                                ? `${daysRemaining}d restantes`
+                                : PLAN_PERIOD_STATUS_LABELS[periodStatus]}
+                          </span>
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
@@ -184,31 +267,35 @@ export function ClientsTable({
                           }
                         />
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onSelect={() => setEditing(client)}>
+                          <DropdownMenuItem onClick={() => setViewing(client)}>
+                            <Eye className="size-4" />
+                            Ver detalhes
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setEditing(client)}>
                             <Pencil className="size-4" />
                             Editar dados
                           </DropdownMenuItem>
                           {invite ? (
-                            <DropdownMenuItem onSelect={() => handleResend(client, invite)}>
+                            <DropdownMenuItem onClick={() => handleResend(client, invite)}>
                               <RotateCcw className="size-4" />
                               Reenviar convite (gera novo link)
                             </DropdownMenuItem>
                           ) : null}
                           <DropdownMenuSeparator />
                           {client.status !== "ativo" ? (
-                            <DropdownMenuItem onSelect={() => handleStatusChange(client, "ativo")}>
+                            <DropdownMenuItem onClick={() => handleStatusChange(client, "ativo")}>
                               <CheckCircle2 className="size-4" />
                               Reativar conta
                             </DropdownMenuItem>
                           ) : (
-                            <DropdownMenuItem onSelect={() => handleStatusChange(client, "suspenso")}>
+                            <DropdownMenuItem onClick={() => handleStatusChange(client, "suspenso")}>
                               <Ban className="size-4" />
                               Suspender conta
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuItem
                             variant="destructive"
-                            onSelect={() => setDeleting(client)}
+                            onClick={() => setDeleting(client)}
                           >
                             <Trash2 className="size-4" />
                             Remover cliente
@@ -226,6 +313,15 @@ export function ClientsTable({
 
       {editing ? (
         <EditClientDialog client={editing} open={!!editing} onOpenChange={(open) => !open && setEditing(null)} />
+      ) : null}
+
+      {viewing ? (
+        <ClientDetailSheet
+          client={viewing}
+          logs={activityByClient[viewing.id] ?? []}
+          open={!!viewing}
+          onOpenChange={(open) => !open && setViewing(null)}
+        />
       ) : null}
 
       <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>

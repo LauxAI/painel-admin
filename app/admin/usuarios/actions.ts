@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { getCurrentAdmin } from "@/lib/get-current-admin"
 import { generateInviteToken } from "@/lib/invites"
 import { logActivity } from "@/lib/log-activity"
-import type { ClientPlan, ClientStatus } from "@/lib/types"
+import { PLAN_LABELS, type ClientPlan, type ClientStatus } from "@/lib/types"
 
 export type ClientFormState = { error?: string; inviteUrl?: string } | null
 
@@ -152,6 +152,52 @@ export async function changeClientStatus(id: string, status: ClientStatus, clien
     entityType: "client_account",
     entityId: id,
     description: `${admin.name} alterou o status de ${clientName} para "${status}".`,
+  })
+
+  revalidatePath("/usuarios")
+}
+
+/**
+ * Updates the client's plan and/or billing period (start/expiration dates).
+ * Any valid date combination is accepted — there are no fixed-length
+ * restrictions. Reuses the existing `client_accounts` columns; no schema
+ * change required.
+ */
+export async function updateClientPeriod(
+  id: string,
+  input: {
+    plan: ClientPlan
+    accountStartDate: string | null
+    accountExpirationDate: string | null
+  },
+  clientName: string,
+) {
+  const admin = await getCurrentAdmin()
+  const db = createAdminClient()
+
+  if (input.accountStartDate && input.accountExpirationDate && input.accountStartDate > input.accountExpirationDate) {
+    throw new Error("A data de início não pode ser depois da data de vencimento.")
+  }
+
+  const { error } = await db
+    .from("client_accounts")
+    .update({
+      plan: input.plan,
+      account_start_date: input.accountStartDate,
+      account_expiration_date: input.accountExpirationDate,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+
+  if (error) throw new Error("Não foi possível atualizar o plano/período.")
+
+  await logActivity(db, {
+    actorId: admin.id,
+    actorName: admin.name,
+    actionType: "cliente_plano_alterado",
+    entityType: "client_account",
+    entityId: id,
+    description: `${admin.name} alterou o plano de ${clientName} para "${PLAN_LABELS[input.plan]}" (${input.accountStartDate ?? "sem início"} → ${input.accountExpirationDate ?? "sem vencimento"}).`,
   })
 
   revalidatePath("/usuarios")
