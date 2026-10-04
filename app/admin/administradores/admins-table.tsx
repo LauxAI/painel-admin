@@ -178,12 +178,12 @@ export function AdminsTable({
                               }
                             />
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onSelect={() => handleResend(invite)}>
+                              <DropdownMenuItem onClick={() => handleResend(invite)}>
                                 <RotateCcw className="size-4" />
                                 Reenviar convite (gera novo link)
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem variant="destructive" onSelect={() => handleCancelInvite(invite)}>
+                              <DropdownMenuItem variant="destructive" onClick={() => handleCancelInvite(invite)}>
                                 <XCircle className="size-4" />
                                 Cancelar convite
                               </DropdownMenuItem>
