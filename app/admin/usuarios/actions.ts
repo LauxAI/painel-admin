@@ -1,3 +1,34 @@
+/**
+ * Substitui integralmente: painel-admin/app/admin/usuarios/actions.ts
+ *
+ * Mudanças em relação ao original:
+ *  - inviteClient: grava `plan` também em `companies` (hoje só ia para
+ *    `client_accounts`), para o Client Dashboard exibir o plano correto.
+ *    Se qualquer etapa posterior à criação da `company` falhar, a
+ *    `company` (e, se já criado, o `client_account`) é revertida para
+ *    evitar registro órfão.
+ *  - updateClient: se o cliente já tiver `auth_user_id` (conta ativada),
+ *    sincroniza `profiles.full_name`/`profiles.phone` — sem isso o admin
+ *    edita o cadastro e o Client Dashboard continua com o nome antigo.
+ *    O erro dessa sincronização é verificado e logado explicitamente,
+ *    nunca silenciado.
+ *  - updateClientPeriod: sincroniza `companies.plan` quando o admin troca
+ *    o plano do cliente. O erro dessa sincronização é verificado e
+ *    logado explicitamente.
+ *  - deleteClient: remove a linha correspondente em `company_members`
+ *    antes de excluir `client_accounts`, evitando um vínculo "fantasma"
+ *    de equipe no Client Dashboard. O resultado dessa exclusão é
+ *    verificado e logado. `companies`, `profiles` e o usuário Auth NÃO
+ *    são excluídos automaticamente (decisão deliberada — ver PLANO.md,
+ *    seção de riscos).
+ *  - Proteção do Owner Principal: o cliente cujo e-mail é
+ *    OWNER_PRINCIPAL_EMAIL não pode ser removido, suspenso/alterado de
+ *    status, ou ter seu vínculo de equipe removido, independentemente
+ *    de qual admin executa a ação. A verificação é feita no servidor
+ *    (nesta action), não depende de nenhuma validação de UI.
+ *
+ * Requer o schema criado por sql/001_schema_bootstrap_cliente.sql.
+ */
 "use server"
 
 import { revalidatePath } from "next/cache"
@@ -10,6 +41,20 @@ import { PLAN_LABELS, type ClientPlan, type ClientStatus } from "@/lib/types"
 export type ClientFormState = { error?: string; inviteUrl?: string } | null
 
 const INVITE_TTL_DAYS = 7
+
+/**
+ * E-mail do Owner Principal do sistema. Este cliente não pode ser
+ * removido, suspenso/ter o status alterado, nem perder seu vínculo de
+ * equipe — por nenhum admin, independentemente de papel. A verificação é
+ * hardcoded e server-side de propósito: não deve ser configurável via UI
+ * ou banco, para que nenhum admin (incluindo outros owners) possa
+ * remover essa proteção.
+ */
+const OWNER_PRINCIPAL_EMAIL = "vladmirbtc@gmail.com"
+
+function isOwnerPrincipalEmail(email: string | null | undefined): boolean {
+  return (email ?? "").trim().toLowerCase() === OWNER_PRINCIPAL_EMAIL
+}
 
 export async function inviteClient(_prevState: ClientFormState, formData: FormData): Promise<ClientFormState> {
   const admin = await getCurrentAdmin()
@@ -34,7 +79,7 @@ export async function inviteClient(_prevState: ClientFormState, formData: FormDa
 
   const { data: company, error: companyError } = await db
     .from("companies")
-    .insert({ name: companyName })
+    .insert({ name: companyName, plan })
     .select()
     .single()
 
@@ -57,6 +102,16 @@ export async function inviteClient(_prevState: ClientFormState, formData: FormDa
     .single()
 
   if (clientError || !client) {
+    // Rollback: a company já foi criada, mas sem um client_account ela
+    // fica órfã (nenhum cliente a referencia). Remove para não acumular
+    // empresas fantasma.
+    const { error: rollbackCompanyError } = await db.from("companies").delete().eq("id", company.id)
+    if (rollbackCompanyError) {
+      console.error(
+        `[inviteClient] Falha ao reverter company órfã ${company.id} após erro em client_accounts:`,
+        rollbackCompanyError,
+      )
+    }
     return { error: "Não foi possível criar a conta do cliente." }
   }
 
@@ -75,7 +130,24 @@ export async function inviteClient(_prevState: ClientFormState, formData: FormDa
   })
 
   if (inviteError) {
-    return { error: "Conta criada, mas não foi possível gerar o convite." }
+    // Rollback: sem convite, o client_account criado é inutilizável (o
+    // cliente nunca receberá um link de ativação). Reverte client_account
+    // e company para não deixar nenhum dos dois órfão.
+    const { error: rollbackClientError } = await db.from("client_accounts").delete().eq("id", client.id)
+    if (rollbackClientError) {
+      console.error(
+        `[inviteClient] Falha ao reverter client_account ${client.id} após erro em invites:`,
+        rollbackClientError,
+      )
+    }
+    const { error: rollbackCompanyError } = await db.from("companies").delete().eq("id", company.id)
+    if (rollbackCompanyError) {
+      console.error(
+        `[inviteClient] Falha ao reverter company ${company.id} após erro em invites:`,
+        rollbackCompanyError,
+      )
+    }
+    return { error: "Não foi possível gerar o convite. A operação foi revertida — tente novamente." }
   }
 
   await logActivity(db, {
@@ -105,6 +177,12 @@ export async function updateClient(id: string, _prevState: ClientFormState, form
     return { error: "O nome do responsável é obrigatório." }
   }
 
+  const { data: clientAccount } = await db
+    .from("client_accounts")
+    .select("auth_user_id")
+    .eq("id", id)
+    .maybeSingle()
+
   const { error } = await db
     .from("client_accounts")
     .update({
@@ -119,6 +197,27 @@ export async function updateClient(id: string, _prevState: ClientFormState, form
 
   if (error) {
     return { error: "Não foi possível atualizar os dados do cliente." }
+  }
+
+  // Mantém o Client Dashboard em dia com o cadastro. Se a conta ainda não
+  // foi ativada (auth_user_id nulo), não há `profiles` para atualizar — a
+  // sincronização acontece naturalmente na ativação.
+  if (clientAccount?.auth_user_id) {
+    const { error: profileSyncError } = await db
+      .from("profiles")
+      .update({ full_name: responsibleName, phone: whatsapp })
+      .eq("id", clientAccount.auth_user_id)
+
+    if (profileSyncError) {
+      console.error(
+        `[updateClient] client_accounts ${id} atualizado, mas falha ao sincronizar profiles ${clientAccount.auth_user_id}:`,
+        profileSyncError,
+      )
+      return {
+        error:
+          "Dados do cliente salvos, mas houve falha ao sincronizar com o Client Dashboard. Tente novamente ou contate o suporte técnico.",
+      }
+    }
   }
 
   await logActivity(db, {
@@ -138,7 +237,11 @@ export async function changeClientStatus(id: string, status: ClientStatus, clien
   const admin = await getCurrentAdmin()
   const db = createAdminClient()
 
-  const { data: before } = await db.from("client_accounts").select("status").eq("id", id).maybeSingle()
+  const { data: before } = await db.from("client_accounts").select("status, email").eq("id", id).maybeSingle()
+
+  if (status !== "ativo" && isOwnerPrincipalEmail(before?.email)) {
+    throw new Error("O Owner Principal do sistema não pode ser suspenso ou ter o status alterado.")
+  }
 
   const { error } = await db
     .from("client_accounts")
@@ -164,7 +267,8 @@ export async function changeClientStatus(id: string, status: ClientStatus, clien
  * Updates the client's plan and/or billing period (start/expiration dates).
  * Any valid date combination is accepted — there are no fixed-length
  * restrictions. Reuses the existing `client_accounts` columns; no schema
- * change required.
+ * change required for this table. Also syncs `companies.plan`, que o Client
+ * Dashboard lê (lib/data/adapters.ts -> toCompany).
  */
 export async function updateClientPeriod(
   id: string,
@@ -184,7 +288,7 @@ export async function updateClientPeriod(
 
   const { data: before } = await db
     .from("client_accounts")
-    .select("plan, account_start_date, account_expiration_date")
+    .select("plan, account_start_date, account_expiration_date, company_id")
     .eq("id", id)
     .maybeSingle()
 
@@ -199,6 +303,23 @@ export async function updateClientPeriod(
     .eq("id", id)
 
   if (error) throw new Error("Não foi possível atualizar o plano/período.")
+
+  if (before?.company_id) {
+    const { error: companySyncError } = await db
+      .from("companies")
+      .update({ plan: input.plan })
+      .eq("id", before.company_id)
+
+    if (companySyncError) {
+      console.error(
+        `[updateClientPeriod] client_accounts ${id} atualizado, mas falha ao sincronizar companies ${before.company_id}:`,
+        companySyncError,
+      )
+      throw new Error(
+        "Plano/período salvos, mas houve falha ao sincronizar com o Client Dashboard. Tente novamente ou contate o suporte técnico.",
+      )
+    }
+  }
 
   await logActivity(db, {
     actorId: admin.id,
@@ -264,8 +385,37 @@ export async function deleteClient(id: string, clientName: string) {
   const admin = await getCurrentAdmin()
   const db = createAdminClient()
 
+  const { data: clientAccount } = await db
+    .from("client_accounts")
+    .select("company_id, auth_user_id, email")
+    .eq("id", id)
+    .maybeSingle()
+
+  if (isOwnerPrincipalEmail(clientAccount?.email)) {
+    throw new Error("O Owner Principal do sistema não pode ser removido.")
+  }
+
   const { error } = await db.from("client_accounts").delete().eq("id", id)
   if (error) throw new Error("Não foi possível remover o cliente.")
+
+  // Evita deixar um vínculo "fantasma" no Client Dashboard. `companies`,
+  // `profiles` e o usuário no Supabase Auth são preservados deliberadamente
+  // (ver PLANO.md, seção de riscos) — ajuste aqui se quiser exclusão em
+  // cascata completa.
+  if (clientAccount?.company_id && clientAccount?.auth_user_id) {
+    const { error: memberDeleteError } = await db
+      .from("company_members")
+      .delete()
+      .eq("company_id", clientAccount.company_id)
+      .eq("user_id", clientAccount.auth_user_id)
+
+    if (memberDeleteError) {
+      console.error(
+        `[deleteClient] client_accounts ${id} removido, mas falha ao remover vínculo em company_members (company ${clientAccount.company_id}, user ${clientAccount.auth_user_id}):`,
+        memberDeleteError,
+      )
+    }
+  }
 
   await logActivity(db, {
     actorId: admin.id,
