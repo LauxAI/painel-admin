@@ -181,5 +181,5 @@ export async function activateAccount(_prevState: ActivateState, formData: FormD
     description: `${invite.name} ativou a conta via convite (${invite.type}).`,
   })
 
-  redirect("/login?ativado=1")
+  redirect("https://lauxai.vercel.app/login?ativado=1")
 }
