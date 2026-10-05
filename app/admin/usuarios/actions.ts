@@ -18,9 +18,9 @@
  *  - deleteClient: remove a linha correspondente em `company_members`
  *    antes de excluir `client_accounts`, evitando um vínculo "fantasma"
  *    de equipe no Client Dashboard. O resultado dessa exclusão é
- *    verificado e logado. `companies`, `profiles` e o usuário Auth NÃO
- *    são excluídos automaticamente (decisão deliberada — ver PLANO.md,
- *    seção de riscos).
+ *    verificado e logado. Em seguida remove o usuário do Supabase Auth
+ *    (cascata em `profiles`/sessões), exceto se ele também for admin.
+ *    `companies` é preservada para histórico.
  *  - Proteção do Owner Principal: o cliente cujo e-mail é
  *    OWNER_PRINCIPAL_EMAIL não pode ser removido, suspenso/alterado de
  *    status, ou ter seu vínculo de equipe removido, independentemente
@@ -398,10 +398,9 @@ export async function deleteClient(id: string, clientName: string) {
   const { error } = await db.from("client_accounts").delete().eq("id", id)
   if (error) throw new Error("Não foi possível remover o cliente.")
 
-  // Evita deixar um vínculo "fantasma" no Client Dashboard. `companies`,
-  // `profiles` e o usuário no Supabase Auth são preservados deliberadamente
-  // (ver PLANO.md, seção de riscos) — ajuste aqui se quiser exclusão em
-  // cascata completa.
+  // A exclusão de `client_accounts` já corta o acesso imediatamente: o RLS e
+  // o guard do Client Dashboard dependem de `current_client_company_id()`,
+  // que exige uma linha ativa. Abaixo limpamos o restante do vínculo.
   if (clientAccount?.company_id && clientAccount?.auth_user_id) {
     const { error: memberDeleteError } = await db
       .from("company_members")
@@ -417,9 +416,36 @@ export async function deleteClient(id: string, clientName: string) {
     }
   }
 
+  // Remove o login do cliente no Supabase Auth (cascata em `profiles`,
+  // `company_members` e sessões/refresh tokens). `companies` e seus dados
+  // operacionais são preservados para histórico. Se o mesmo usuário também
+  // for administrador do painel, o login é mantido — apenas o vínculo de
+  // cliente é removido, o que já bloqueia o Client Dashboard.
+  let authUserRemoved = false
+  if (clientAccount?.auth_user_id) {
+    const { data: adminProfile } = await db
+      .from("admin_profiles")
+      .select("id")
+      .eq("id", clientAccount.auth_user_id)
+      .maybeSingle()
+
+    if (!adminProfile) {
+      const { error: authDeleteError } = await db.auth.admin.deleteUser(clientAccount.auth_user_id)
+      if (authDeleteError) {
+        console.error(
+          `[deleteClient] client_accounts ${id} removido, mas falha ao remover usuário Auth ${clientAccount.auth_user_id}:`,
+          authDeleteError,
+        )
+      } else {
+        authUserRemoved = true
+      }
+    }
+  }
+
   await logActivity(db, {
     actorId: admin.id,
     actorName: admin.name,
+    metadata: { authUserId: clientAccount?.auth_user_id ?? null, authUserRemoved },
     actionType: "cliente_removido",
     entityType: "client_account",
     entityId: id,
