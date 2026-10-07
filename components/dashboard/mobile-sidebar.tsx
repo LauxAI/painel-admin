@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
@@ -24,11 +25,14 @@ export function MobileSidebar({ role }: { role: AdminRole }) {
       <SheetContent side="left" className="w-64 border-sidebar-border bg-sidebar p-0 text-sidebar-foreground">
         <SheetTitle className="sr-only">Menu de navegação</SheetTitle>
         <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
-            <span className="font-mono text-sm font-bold text-primary-foreground">L</span>
-          </div>
-          <div className="flex flex-col leading-none">
-            <span className="text-sm font-semibold text-sidebar-foreground">LAUXAI CORE</span>
+          <div className="flex flex-col gap-1 leading-none">
+            <Image
+              src="/images/logo-lauxai-core.png"
+              alt="LAUXAI CORE"
+              width={360}
+              height={98}
+              className="h-8 w-auto"
+            />
             <span className="font-mono text-[10px] uppercase tracking-wider text-sidebar-foreground/50">
               Painel admin
             </span>

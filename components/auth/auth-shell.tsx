@@ -1,3 +1,4 @@
+import Image from "next/image"
 import type { ReactNode } from "react"
 
 export function AuthShell({
@@ -23,9 +24,14 @@ export function AuthShell({
       />
       <div className="relative z-10 w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-1 text-center">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-md bg-primary">
-            <span className="font-mono text-sm font-bold text-primary-foreground">L</span>
-          </div>
+          <Image
+            src="/images/logo-lauxai-core.png"
+            alt="LAUXAI CORE"
+            width={360}
+            height={98}
+            priority
+            className="mb-3 h-14 w-auto"
+          />
           <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
             {eyebrow ?? "LAUXAI CORE"}
           </p>
