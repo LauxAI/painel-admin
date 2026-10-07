@@ -8,11 +8,45 @@ export interface InsertCall {
 
 type DbError = { code?: string; message?: string } | null
 
-/** Cliente falso que registra inserts. `errors` é consumido na ordem, uma entrada por insert. */
-export function createInsertClient(errors: DbError[] = []) {
+export interface CompanyLookupOptions {
+  /** id -> nome. Ids ausentes simulam empresa inexistente (maybeSingle devolve data: null). */
+  companies?: Record<string, string | null>
+  /** Simula erro devolvido pelo banco na consulta da empresa. */
+  lookupError?: DbError
+  /** Simula exceção na consulta da empresa. */
+  lookupThrows?: boolean
+  /** Simula consulta que nunca responde (para testar o tempo limite). */
+  lookupHangs?: boolean
+}
+
+/**
+ * Cliente falso que registra inserts. `errors` é consumido na ordem, uma entrada por insert.
+ * A tabela `companies` responde a `select("name").eq("id", x).maybeSingle()` conforme `lookup`.
+ */
+export function createInsertClient(errors: DbError[] = [], lookup: CompanyLookupOptions = {}) {
   const calls: InsertCall[] = []
+  const lookups: string[] = []
   const client = {
     from(table: string) {
+      if (table === "companies") {
+        let id = ""
+        const chain = {
+          select: () => chain,
+          eq: (_column: string, value: string) => {
+            id = value
+            return chain
+          },
+          maybeSingle: () => {
+            lookups.push(id)
+            if (lookup.lookupThrows) throw new Error("falha ao consultar empresa")
+            if (lookup.lookupHangs) return new Promise(() => {})
+            if (lookup.lookupError) return Promise.resolve({ data: null, error: lookup.lookupError })
+            const name = lookup.companies?.[id]
+            return Promise.resolve({ data: name === undefined ? null : { name }, error: null })
+          },
+        }
+        return chain
+      }
       return {
         insert(values: Record<string, unknown>) {
           calls.push({ table, values })
@@ -22,7 +56,7 @@ export function createInsertClient(errors: DbError[] = []) {
       }
     },
   } as unknown as AuditDbClient
-  return { client, calls }
+  return { client, calls, lookups }
 }
 
 export interface RecordedQuery {

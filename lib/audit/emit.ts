@@ -1,3 +1,4 @@
+import { resolveCompanyNameSnapshot } from "@/lib/audit/company"
 import { createAuditEvent, type CreateAuditEventOptions } from "@/lib/audit/event"
 import { persistAuditRow, type AuditDbClient } from "@/lib/audit/persist"
 import type { AuditEmitResult, AuditEventInput } from "@/lib/audit/types"
@@ -18,15 +19,21 @@ export async function emitAuditEventWith(
       return { ok: false, error: "invalid_event", warnings: created.warnings }
     }
 
-    const outcome = await persistAuditRow(client, created.row)
+    let row = created.row
+    if (row.company_id) {
+      const snapshot = await resolveCompanyNameSnapshot(client, row.company_id, { knownSecrets: options.knownSecrets })
+      if (snapshot) row = { ...row, company_name_snapshot: snapshot }
+    }
+
+    const outcome = await persistAuditRow(client, row)
     if (!outcome.ok) {
       return { ok: false, error: "persist_failed", warnings: created.warnings }
     }
 
     return {
       ok: true,
-      id: created.row.id,
-      correlationId: created.row.correlation_id,
+      id: row.id,
+      correlationId: row.correlation_id,
       warnings: created.warnings,
     }
   } catch {

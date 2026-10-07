@@ -49,6 +49,8 @@ export interface AuditEventRow {
   id: string
   occurred_at: string
   company_id: string | null
+  /** Nome da empresa no momento do evento; preenchido automaticamente pela emissão, nunca pelo chamador. */
+  company_name_snapshot: string | null
   actor_type: AuditActorType | null
   actor_id: string | null
   actor_name: string
