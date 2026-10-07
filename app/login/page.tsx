@@ -13,7 +13,7 @@ export default async function LoginPage() {
   const { data: hasAdmin } = await admin.rpc("has_any_admin")
 
   return (
-    <AuthShell title="Acessar o painel" description="Painel administrativo interno da LAUXAI CORE.">
+    <AuthShell eyebrow="" title="Acessar o painel" description="Painel administrativo interno da LAUXAI CORE.">
       <LoginForm />
       {!hasAdmin ? (
         <p className="mt-5 text-center text-xs text-muted-foreground">
