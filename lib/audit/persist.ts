@@ -24,6 +24,7 @@ function toLegacyShape(row: AuditEventRow): Pick<AuditEventRow, LegacyColumn> {
   const extended = {
     occurred_at: row.occurred_at,
     company_id: row.company_id,
+    company_name_snapshot: row.company_name_snapshot,
     actor_type: row.actor_type,
     source: row.source,
     domain: row.domain,

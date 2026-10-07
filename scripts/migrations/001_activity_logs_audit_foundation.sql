@@ -30,6 +30,7 @@ begin;
 alter table public.activity_logs
   add column if not exists occurred_at      timestamptz,
   add column if not exists company_id       uuid references public.companies (id) on delete set null,
+  add column if not exists company_name_snapshot text,
   add column if not exists actor_type       text,
   add column if not exists source           text,
   add column if not exists domain           text,
@@ -96,6 +97,7 @@ create index if not exists idx_activity_logs_severity_created
 
 comment on column public.activity_logs.occurred_at     is 'Momento em que o evento ocorreu (created_at é o momento da gravação).';
 comment on column public.activity_logs.company_id      is 'Empresa dona do evento. NULL = evento global/administrativo.';
+comment on column public.activity_logs.company_name_snapshot is 'Nome da empresa no momento do evento (preenchido pela aplicação). Preserva a identificação histórica quando company_id vira NULL após a exclusão da empresa. NULL = sem empresa ou não resolvida.';
 comment on column public.activity_logs.actor_type      is 'admin | client | system | agent | webhook | unknown';
 comment on column public.activity_logs.domain          is 'Domínio padronizado do evento (auth, admin, client, ai, ...).';
 comment on column public.activity_logs.correlation_id  is 'Compartilhado por todos os eventos de um mesmo fluxo.';

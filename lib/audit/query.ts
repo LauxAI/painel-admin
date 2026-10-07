@@ -51,6 +51,7 @@ export const AUDIT_LIST_COLUMNS = [
   "created_at",
   "occurred_at",
   "company_id",
+  "company_name_snapshot",
   "actor_type",
   "actor_id",
   "actor_name",

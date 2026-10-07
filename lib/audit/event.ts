@@ -132,6 +132,7 @@ export function createAuditEvent(input: AuditEventInput, options: CreateAuditEve
     id: options.generateId ? options.generateId() : crypto.randomUUID(),
     occurred_at: resolveOccurredAt(input.occurredAt, now, warnings),
     company_id: pickUuid("company_id", input.companyId, warnings),
+    company_name_snapshot: null,
     actor_type: actorType,
     actor_id: actorId,
     actor_name: actorName,

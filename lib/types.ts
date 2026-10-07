@@ -74,6 +74,7 @@ export interface ActivityLog {
    */
   occurred_at?: string | null
   company_id?: string | null
+  company_name_snapshot?: string | null
   actor_type?: "admin" | "client" | "system" | "agent" | "webhook" | "unknown" | null
   source?: string | null
   domain?: string | null

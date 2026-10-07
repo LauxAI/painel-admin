@@ -153,6 +153,8 @@ export const AUDIT_LIMITS = {
   actionMaxLength: 120,
   descriptionMaxLength: 500,
   identifierMaxLength: 128,
+  companyNameMaxLength: 200,
+  companyLookupTimeoutMs: 2000,
   metadataMaxBytes: 8192,
   metadataMaxDepth: 5,
   metadataMaxKeys: 50,

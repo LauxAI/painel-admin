@@ -1,9 +1,16 @@
 import { describe, expect, it, vi } from "vitest"
-import { AUDIT_ACTION_DOMAINS, AUDIT_DOMAINS, AUDIT_SEVERITIES, AUDIT_STATUSES, FUTURE_ACTION_DOMAINS } from "@/lib/audit/constants"
+import {
+  AUDIT_ACTION_DOMAINS,
+  AUDIT_DOMAINS,
+  AUDIT_LIMITS,
+  AUDIT_SEVERITIES,
+  AUDIT_STATUSES,
+  FUTURE_ACTION_DOMAINS,
+} from "@/lib/audit/constants"
 import { childOf, newCorrelationId } from "@/lib/audit/correlation"
 import { emitAuditEventWith } from "@/lib/audit/emit"
 import { createAuditEvent } from "@/lib/audit/event"
-import { ADMIN_ID, COMPANY_A, FAKE_SECRETS, createInsertClient } from "./helpers"
+import { ADMIN_ID, COMPANY_A, COMPANY_B, FAKE_SECRETS, createInsertClient } from "./helpers"
 
 const fixedNow = () => new Date("2026-07-10T12:00:00.000Z")
 
@@ -38,6 +45,7 @@ describe("criação de evento", () => {
       id: "44444444-4444-4444-8444-444444444444",
       occurred_at: "2026-07-10T12:00:00.000Z",
       company_id: COMPANY_A,
+      company_name_snapshot: null,
       actor_type: "agent",
       actor_id: ADMIN_ID,
       actor_name: "Agente Atendimento",
@@ -66,6 +74,7 @@ describe("criação de evento", () => {
     if (!created.ok) return
     expect(created.row).toMatchObject({
       company_id: null,
+      company_name_snapshot: null,
       actor_type: null,
       actor_id: null,
       source: null,
@@ -150,6 +159,138 @@ describe("evento sem company_id", () => {
     if (!created.ok) return
     expect(created.row.company_id).toBeNull()
     expect(created.warnings).toContain("company_id_invalid")
+  })
+})
+
+describe("company_name_snapshot", () => {
+  it("evento com empresa captura o nome no momento da emissão, sem o chamador informar", async () => {
+    const { client, calls, lookups } = createInsertClient([], { companies: { [COMPANY_A]: "  Clínica Aurora  " } })
+
+    const result = await emitAuditEventWith(client, { action: "login", companyId: COMPANY_A })
+
+    expect(result.ok).toBe(true)
+    expect(lookups).toEqual([COMPANY_A])
+    expect(calls[0].values.company_id).toBe(COMPANY_A)
+    expect(calls[0].values.company_name_snapshot).toBe("Clínica Aurora")
+  })
+
+  it("evento sem empresa não consulta nem captura snapshot", async () => {
+    const { client, calls, lookups } = createInsertClient([], { companies: { [COMPANY_A]: "Clínica Aurora" } })
+
+    const result = await emitAuditEventWith(client, { action: "configuracoes_atualizadas", actorType: "admin" })
+
+    expect(result.ok).toBe(true)
+    expect(lookups).toEqual([])
+    expect(calls[0].values.company_id).toBeNull()
+    expect(calls[0].values.company_name_snapshot).toBeNull()
+  })
+
+  it("company_id inválido não gera consulta nem snapshot", async () => {
+    const { client, calls, lookups } = createInsertClient()
+
+    await emitAuditEventWith(client, { action: "login", companyId: "nao-e-uuid" })
+
+    expect(lookups).toEqual([])
+    expect(calls[0].values.company_id).toBeNull()
+    expect(calls[0].values.company_name_snapshot).toBeNull()
+  })
+
+  it("empresa inexistente não gera snapshot falso e o evento é gravado", async () => {
+    const { client, calls, lookups } = createInsertClient([], { companies: { [COMPANY_B]: "Outra Empresa" } })
+
+    const result = await emitAuditEventWith(client, { action: "login", companyId: COMPANY_A })
+
+    expect(result.ok).toBe(true)
+    expect(lookups).toEqual([COMPANY_A])
+    expect(calls[0].values.company_id).toBe(COMPANY_A)
+    expect(calls[0].values.company_name_snapshot).toBeNull()
+  })
+
+  it.each([
+    ["nome vazio", ""],
+    ["nome só com espaços", "   "],
+  ])("%s resulta em snapshot NULL", async (_label, name) => {
+    const { client, calls } = createInsertClient([], { companies: { [COMPANY_A]: name } })
+    await emitAuditEventWith(client, { action: "login", companyId: COMPANY_A })
+    expect(calls[0].values.company_name_snapshot).toBeNull()
+  })
+
+  it("o chamador não consegue forçar um snapshot manual", async () => {
+    const { client, calls } = createInsertClient([], { companies: { [COMPANY_A]: "Nome Real" } })
+
+    await emitAuditEventWith(client, {
+      action: "login",
+      companyId: COMPANY_A,
+      companyNameSnapshot: "Nome Forjado",
+    } as never)
+    await emitAuditEventWith(client, { action: "login", companyNameSnapshot: "Nome Forjado" } as never)
+
+    expect(calls[0].values.company_name_snapshot).toBe("Nome Real")
+    expect(calls[1].values.company_name_snapshot).toBeNull()
+  })
+
+  it("falha do banco ao resolver a empresa não interrompe a operação principal", async () => {
+    const { client, calls } = createInsertClient([], { lookupError: { code: "42501", message: "permission denied" } })
+
+    const result = await emitAuditEventWith(client, { action: "login", companyId: COMPANY_A })
+
+    expect(result.ok).toBe(true)
+    expect(calls).toHaveLength(1)
+    expect(calls[0].values.company_id).toBe(COMPANY_A)
+    expect(calls[0].values.company_name_snapshot).toBeNull()
+  })
+
+  it("exceção ao resolver a empresa não interrompe a operação principal nem vaza detalhes", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
+    const { client, calls } = createInsertClient([], { lookupThrows: true })
+
+    const result = await emitAuditEventWith(client, { action: "login", companyId: COMPANY_A })
+
+    expect(result.ok).toBe(true)
+    expect(calls[0].values.company_name_snapshot).toBeNull()
+    expect(JSON.stringify(warnSpy.mock.calls)).not.toContain("falha ao consultar empresa")
+    warnSpy.mockRestore()
+  })
+
+  it("consulta que nunca responde expira e o evento ainda é gravado", async () => {
+    vi.useFakeTimers()
+    try {
+      const { client, calls } = createInsertClient([], { lookupHangs: true })
+
+      const pending = emitAuditEventWith(client, { action: "login", companyId: COMPANY_A })
+      await vi.advanceTimersByTimeAsync(AUDIT_LIMITS.companyLookupTimeoutMs + 1)
+      const result = await pending
+
+      expect(result.ok).toBe(true)
+      expect(calls[0].values.company_name_snapshot).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("o nome da empresa passa pela redaction", async () => {
+    const { client, calls } = createInsertClient([], {
+      companies: { [COMPANY_A]: `Empresa ${FAKE_SECRETS.openai}` },
+    })
+
+    await emitAuditEventWith(client, { action: "login", companyId: COMPANY_A })
+
+    expect(JSON.stringify(calls)).not.toContain(FAKE_SECRETS.openai)
+  })
+
+  it("sem a migration, o snapshot é preservado sob _audit no formato legado", async () => {
+    const { client, calls } = createInsertClient([{ code: "PGRST204", message: "column not found" }], {
+      companies: { [COMPANY_A]: "Clínica Aurora" },
+    })
+
+    const result = await emitAuditEventWith(client, { action: "login", companyId: COMPANY_A })
+
+    expect(result.ok).toBe(true)
+    expect(calls).toHaveLength(2)
+    expect(calls[1].values).not.toHaveProperty("company_name_snapshot")
+    expect(calls[1].values.metadata).toMatchObject({
+      _audit: { company_id: COMPANY_A, company_name_snapshot: "Clínica Aurora" },
+    })
   })
 })
 
