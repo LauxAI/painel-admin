@@ -68,6 +68,23 @@ export interface ActivityLog {
   description: string
   metadata: Record<string, unknown>
   created_at: string
+  /**
+   * Campos da fundação de auditoria (migration 001). São NULL em logs legados e
+   * podem estar ausentes enquanto a migration não for aplicada no Supabase.
+   */
+  occurred_at?: string | null
+  company_id?: string | null
+  actor_type?: "admin" | "client" | "system" | "agent" | "webhook" | "unknown" | null
+  source?: string | null
+  domain?: string | null
+  provider?: string | null
+  status?: "started" | "success" | "failed" | "blocked" | "cancelled" | null
+  severity?: "info" | "notice" | "warning" | "error" | "critical" | null
+  request_id?: string | null
+  correlation_id?: string | null
+  parent_event_id?: string | null
+  error_code?: string | null
+  duration_ms?: number | null
 }
 
 export const PLAN_LABELS: Record<ClientPlan, string> = {
