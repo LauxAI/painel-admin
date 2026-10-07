@@ -32,9 +32,11 @@ export function AuthShell({
             priority
             className="mb-3 h-14 w-auto"
           />
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-            {eyebrow ?? "LAUXAI CORE"}
-          </p>
+          {(eyebrow ?? "LAUXAI CORE") ? (
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+              {eyebrow ?? "LAUXAI CORE"}
+            </p>
+          ) : null}
           <h1 className="text-balance text-xl font-semibold text-foreground">{title}</h1>
           {description ? (
             <p className="text-pretty text-sm leading-relaxed text-muted-foreground">{description}</p>
