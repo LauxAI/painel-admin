@@ -45,29 +45,29 @@ alter table public.activity_logs
 -- Valores padronizados (NULL permitido: eventos legados não possuem estes campos).
 do $$
 begin
-  if not exists (select 1 from pg_constraint where conname = 'activity_logs_actor_type_check') then
+  if not exists (select 1 from pg_constraint where conrelid = 'public.activity_logs'::regclass and conname = 'activity_logs_actor_type_check') then
     alter table public.activity_logs add constraint activity_logs_actor_type_check
       check (actor_type is null or actor_type in ('admin','client','system','agent','webhook','unknown'));
   end if;
 
-  if not exists (select 1 from pg_constraint where conname = 'activity_logs_domain_check') then
+  if not exists (select 1 from pg_constraint where conrelid = 'public.activity_logs'::regclass and conname = 'activity_logs_domain_check') then
     alter table public.activity_logs add constraint activity_logs_domain_check
       check (domain is null or domain in (
         'auth','admin','client','ai','automation','integration','webhook',
         'whatsapp','widget','scheduling','crm','billing','support','security'));
   end if;
 
-  if not exists (select 1 from pg_constraint where conname = 'activity_logs_status_check') then
+  if not exists (select 1 from pg_constraint where conrelid = 'public.activity_logs'::regclass and conname = 'activity_logs_status_check') then
     alter table public.activity_logs add constraint activity_logs_status_check
       check (status is null or status in ('started','success','failed','blocked','cancelled'));
   end if;
 
-  if not exists (select 1 from pg_constraint where conname = 'activity_logs_severity_check') then
+  if not exists (select 1 from pg_constraint where conrelid = 'public.activity_logs'::regclass and conname = 'activity_logs_severity_check') then
     alter table public.activity_logs add constraint activity_logs_severity_check
       check (severity is null or severity in ('info','notice','warning','error','critical'));
   end if;
 
-  if not exists (select 1 from pg_constraint where conname = 'activity_logs_duration_ms_check') then
+  if not exists (select 1 from pg_constraint where conrelid = 'public.activity_logs'::regclass and conname = 'activity_logs_duration_ms_check') then
     alter table public.activity_logs add constraint activity_logs_duration_ms_check
       check (duration_ms is null or duration_ms >= 0);
   end if;

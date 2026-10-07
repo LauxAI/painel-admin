@@ -20,19 +20,38 @@ interface LogActivityParams {
  * Falhas de log nunca interrompem a operação principal.
  */
 export async function logActivity(supabase: SupabaseClient, params: LogActivityParams) {
-  const created = createAuditEvent(
-    {
-      action: params.actionType,
-      actorId: params.actorId,
-      actorName: params.actorName,
-      resourceType: params.entityType,
-      resourceId: params.entityId,
-      description: params.description,
-      metadata: params.metadata,
-    },
-    { knownSecrets: collectKnownSecrets(process.env) },
-  )
-  if (!created.ok) return
+  try {
+    const created = createAuditEvent(
+      {
+        action: params.actionType,
+        actorId: params.actorId,
+        actorName: params.actorName,
+        resourceType: params.entityType,
+        resourceId: params.entityId,
+        description: params.description,
+        metadata: params.metadata,
+      },
+      { knownSecrets: collectKnownSecrets(process.env) },
+    )
 
-  await persistLegacyRow(supabase, created.row)
+    if (!created.ok) {
+      console.warn("[audit] logActivity descartou o evento", {
+        action: params.actionType,
+        error: created.error,
+        warnings: created.warnings,
+      })
+      return
+    }
+
+    if (created.warnings.length > 0) {
+      console.warn("[audit] logActivity normalizou campos", {
+        action: params.actionType,
+        warnings: created.warnings,
+      })
+    }
+
+    await persistLegacyRow(supabase, created.row)
+  } catch {
+    console.error("[audit] logActivity falhou de forma inesperada", { action: params.actionType })
+  }
 }
